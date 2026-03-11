@@ -1,0 +1,10 @@
+You will receive a list of search query records.
+
+Return only valid JSON and do not add markdown fences, explanations, or extra text.
+The JSON must match this schema exactly:
+
+{response_schema}
+
+Each input record corresponds to one output object.
+For each input record, echo back the same `unit_id` and `query` values.
+The response must contain a top-level `items` array with between 1 and 3 objects, depending on the batch size.

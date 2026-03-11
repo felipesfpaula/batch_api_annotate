@@ -1,0 +1,65 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "llm-batch-annotate"
+dynamic = ["version"]
+description = "Batch-oriented LLM annotation workflows for tabular datasets with OpenAI Batch support."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+  {name = "Felipe Paula"},
+]
+keywords = [
+  "annotation",
+  "batch",
+  "llm",
+  "openai",
+  "pydantic",
+  "tabular-data",
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+  "pydantic>=2,<3",
+]
+
+[project.urls]
+Homepage = "https://github.com/felipepaula/batch_api_annotate"
+Documentation = "https://llm-batch-annotate.readthedocs.io/"
+Repository = "https://github.com/felipepaula/batch_api_annotate"
+Issues = "https://github.com/felipepaula/batch_api_annotate/issues"
+
+[project.optional-dependencies]
+test = [
+  "pytest>=8,<9",
+]
+docs = [
+  "furo>=2024.8.6",
+  "myst-parser>=4,<5",
+  "sphinx>=8,<9",
+]
+
+[project.scripts]
+llm-batch-annotate = "llm_batch_annotate.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.dynamic]
+version = {attr = "llm_batch_annotate._version.__version__"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

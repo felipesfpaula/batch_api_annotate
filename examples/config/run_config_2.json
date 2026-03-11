@@ -1,0 +1,129 @@
+{
+  "run_metadata": {
+    "run_name": "example-grouped-echo-query",
+    "description": "Grouped OpenAI Batch example that echoes unit_id and query with groups of at most 3",
+    "tags": [
+      "example",
+      "openai-batch",
+      "gpt-5-mini",
+      "grouped"
+    ]
+  },
+  "source_input": {
+    "path": "../data/mock_data.csv",
+    "format": "csv",
+    "unit_id_column": "unit_id"
+  },
+  "task_kind": "grouped",
+  "task": {
+    "import_path": "llm_batch_annotate.GroupedTaskBase",
+    "settings": {
+      "required_input_columns": [
+        "query"
+      ],
+      "unit_field_columns": [
+        "query"
+      ]
+    }
+  },
+  "builder": {
+    "import_path": "llm_batch_annotate.SimpleTemplateBuilder",
+    "settings": {
+      "required_unit_fields": [
+        "query"
+      ]
+    }
+  },
+  "parser": {
+    "import_path": "llm_batch_annotate.StructuredOutputParser"
+  },
+  "provider": {
+    "component": {
+      "import_path": "llm_batch_annotate.OpenAIBatchProvider"
+    },
+    "config": {
+      "provider_kind": "openai_batch",
+      "model": "gpt-5-mini",
+      "completion_window": "24h",
+      "metadata": {
+        "example_name": "grouped_echo_query",
+        "variant": "grouped"
+      },
+      "request_options": {
+        "endpoint": "/v1/responses",
+        "api_key_env_var": "OPEN_AI_KEY",
+        "timeout_seconds": 10,
+        "body": {
+          "text": {
+            "format": {
+              "type": "json_schema",
+              "name": "echo_grouped_unit_and_query",
+              "strict": true,
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "items"
+                ],
+                "properties": {
+                  "items": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 3,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "unit_id",
+                        "query"
+                      ],
+                      "properties": {
+                        "unit_id": {
+                          "type": "string"
+                        },
+                        "query": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "artifact_store": {
+    "component": {
+      "import_path": "llm_batch_annotate.LocalArtifactStore"
+    },
+    "config": {
+      "kind": "local",
+      "root_dir": "../runs"
+    }
+  },
+  "grouping": {
+    "strategy": "fixed_size",
+    "group_size": 3,
+    "exact_coverage": true
+  },
+  "prompt_assets": {
+    "asset_root": "..",
+    "system_prompt_path": "prompts/prompt_2.txt",
+    "user_prompt_template_path": "templates/template_2.txt",
+    "response_schema_path": "schemas/prompt_2.schema.json"
+  },
+  "output": {
+    "preserve_raw_outputs": true,
+    "write_manifest": true,
+    "write_summary": true
+  },
+  "retry_policy": {
+    "enabled": false,
+    "max_attempts": 1,
+    "retry_failed_requests": false,
+    "retry_failed_items": false
+  }
+}

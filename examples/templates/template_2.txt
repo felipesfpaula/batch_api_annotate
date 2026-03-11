@@ -1,0 +1,6 @@
+Input records JSON:
+{units_json}
+
+For each record:
+- use `unit_id` as the unit identifier
+- use `fields.query` as the query text
