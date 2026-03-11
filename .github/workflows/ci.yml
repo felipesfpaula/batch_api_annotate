@@ -19,11 +19,11 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Upgrade pip
-        run: python -m pip install --upgrade pip
+      - name: Upgrade packaging tooling
+        run: python -m pip install --upgrade pip setuptools wheel
 
       - name: Install project and tooling
-        run: python -m pip install --no-build-isolation -e .[test,docs] build twine
+        run: python -m pip install -e .[test,docs] build twine
 
       - name: Run tests
         run: pytest -q
