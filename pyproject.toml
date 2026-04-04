@@ -34,10 +34,11 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/felipepaula/batch_api_annotate"
+Homepage = "https://github.com/felipesfpaula/batch_api_annotate"
 Documentation = "https://llm-batch-annotate.readthedocs.io/"
-Repository = "https://github.com/felipepaula/batch_api_annotate"
-Issues = "https://github.com/felipepaula/batch_api_annotate/issues"
+Changelog = "https://llm-batch-annotate.readthedocs.io/en/latest/releases.html"
+Repository = "https://github.com/felipesfpaula/batch_api_annotate"
+Issues = "https://github.com/felipesfpaula/batch_api_annotate/issues"
 
 [project.optional-dependencies]
 test = [

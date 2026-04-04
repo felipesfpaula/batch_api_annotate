@@ -15,5 +15,6 @@ openai_batch
 examples
 architecture
 api
+releases
 development
 ```

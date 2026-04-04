@@ -30,7 +30,7 @@ def make_component(import_path: str) -> dict[str, object]:
 def make_run_config(*, task_kind: TaskKind = TaskKind.SINGLE) -> RunConfig:
     payload: dict[str, object] = {
         "run_metadata": {"run_name": "task-phase"},
-        "source_input": {"path": "data/input.csv", "format": "csv", "unit_id_column": "unit_id"},
+        "source_input": {"path": "data/input.csv", "format": "csv", "row_id_column": "query_id"},
         "task_kind": task_kind,
         "task": make_component("sample.tasks.BasicTask"),
         "builder": make_component("sample.builders.BasicBuilder"),
@@ -50,9 +50,9 @@ def make_run_config(*, task_kind: TaskKind = TaskKind.SINGLE) -> RunConfig:
 
 def sample_rows() -> list[dict[str, str]]:
     return [
-        {"unit_id": "u-1", "query": "red shoes"},
-        {"unit_id": "u-2", "query": "black boots"},
-        {"unit_id": "u-3", "query": "green sandals"},
+        {"query_id": "q-1", "query": "red shoes"},
+        {"query_id": "q-2", "query": "black boots"},
+        {"query_id": "q-3", "query": "green sandals"},
     ]
 
 
@@ -66,12 +66,25 @@ def fake_executor(requests: Sequence[RequestRecord]) -> tuple[list[RawOutputReco
                     "content": json.dumps(
                         {
                             "items": [
-                                {"unit_id": unit_id, "label": f"label-{unit_id}"}
+                                {"query_id": unit_id, "label": f"label-{unit_id}"}
                                 for unit_id in request.unit_ids
                             ]
                         }
                     )
                 },
+            )
+        )
+    return outputs, []
+
+
+def fake_single_bare_executor(requests: Sequence[RequestRecord]) -> tuple[list[RawOutputRecord], list[RawErrorRecord]]:
+    outputs: list[RawOutputRecord] = []
+    for request in requests:
+        unit_id = request.unit_ids[0]
+        outputs.append(
+            RawOutputRecord(
+                request_id=request.request_id,
+                payload={"content": json.dumps({"label": f"label-{unit_id}"})},
             )
         )
     return outputs, []
@@ -86,23 +99,23 @@ def test_single_task_base_creates_single_unit_groups_and_requests() -> None:
     groups = task.plan_groups(units, config)
     requests = task.build_requests(units, groups, builder, config)
 
-    assert [group.unit_ids for group in groups] == [["u-1"], ["u-2"]]
-    assert [request.request_id for request in requests] == ["request-000000", "request-000001"]
+    assert [group.unit_ids for group in groups] == [["q-1"], ["q-2"]]
+    assert [request.request_id for request in requests] == ["q-1", "q-2"]
     assert requests[0].payload["messages"][0]["content"] == "Annotate red shoes"
 
 
 def test_grouped_task_base_creates_fixed_size_groups_and_grouped_requests() -> None:
     task = GroupedTaskBase(required_input_columns=["query"], unit_field_columns=["query"])
-    builder = SimpleTemplateBuilder(user_template="Annotate {unit_ids_csv}")
+    builder = SimpleTemplateBuilder(user_template="Annotate {row_ids_csv}")
     config = make_run_config(task_kind=TaskKind.GROUPED)
 
     units = task.materialize_units(sample_rows(), config)
     groups = task.plan_groups(units, config)
     requests = task.build_requests(units, groups, builder, config)
 
-    assert [group.unit_ids for group in groups] == [["u-1", "u-2"], ["u-3"]]
+    assert [group.unit_ids for group in groups] == [["q-1", "q-2"], ["q-3"]]
     assert requests[0].group_id == "group-000000"
-    assert requests[0].payload["messages"][0]["content"] == "Annotate u-1,u-2"
+    assert requests[0].payload["messages"][0]["content"] == "Annotate q-1,q-2"
 
 
 def test_offline_pipeline_runs_single_task_end_to_end() -> None:
@@ -121,13 +134,30 @@ def test_offline_pipeline_runs_single_task_end_to_end() -> None:
     assert len(result.parsed_requests) == 2
     assert len(result.annotations) == 2
     assert result.failures == []
-    assert [annotation.fields["label"] for annotation in result.annotations] == ["label-u-1", "label-u-2"]
+    assert [annotation.fields["label"] for annotation in result.annotations] == ["label-q-1", "label-q-2"]
+
+
+def test_offline_pipeline_runs_single_task_end_to_end_without_unit_id_in_output() -> None:
+    pipeline = OfflineTaskPipeline(
+        task=SingleTaskBase(required_input_columns=["query"], unit_field_columns=["query"]),
+        builder=SimpleTemplateBuilder(user_template="Annotate {query}"),
+        parser=StructuredOutputParser(),
+        config=make_run_config(),
+    )
+
+    result = pipeline.run(sample_rows()[:2], fake_single_bare_executor)
+
+    assert len(result.parsed_requests) == 2
+    assert len(result.annotations) == 2
+    assert result.failures == []
+    assert [annotation.unit_id for annotation in result.annotations] == ["q-1", "q-2"]
+    assert [annotation.fields["label"] for annotation in result.annotations] == ["label-q-1", "label-q-2"]
 
 
 def test_offline_pipeline_runs_grouped_task_end_to_end() -> None:
     pipeline = OfflineTaskPipeline(
         task=GroupedTaskBase(required_input_columns=["query"], unit_field_columns=["query"]),
-        builder=SimpleTemplateBuilder(user_template="Annotate {unit_ids_csv}"),
+        builder=SimpleTemplateBuilder(user_template="Annotate {row_ids_csv}"),
         parser=StructuredOutputParser(),
         config=make_run_config(task_kind=TaskKind.GROUPED),
     )
@@ -135,8 +165,8 @@ def test_offline_pipeline_runs_grouped_task_end_to_end() -> None:
     result = pipeline.run(sample_rows(), fake_executor)
 
     assert len(result.groups) == 2
-    assert [group.unit_ids for group in result.groups] == [["u-1", "u-2"], ["u-3"]]
+    assert [group.unit_ids for group in result.groups] == [["q-1", "q-2"], ["q-3"]]
     assert len(result.parsed_requests) == 2
     assert len(result.annotations) == 3
     assert result.failures == []
-    assert [annotation.unit_id for annotation in result.annotations] == ["u-1", "u-2", "u-3"]
+    assert [annotation.unit_id for annotation in result.annotations] == ["q-1", "q-2", "q-3"]

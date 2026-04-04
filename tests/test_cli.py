@@ -8,18 +8,18 @@ from llm_batch_annotate.cli import import_string, load_run_config, main, parse_p
 
 def write_csv(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("unit_id,query\nu-1,red shoes\nu-2,black boots\nu-3,green sandals\n", encoding="utf-8")
+    path.write_text("query_id,query\nq-1,red shoes\nq-2,black boots\nq-3,green sandals\n", encoding="utf-8")
 
 
 def write_prompt_assets(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
-    (path / "user.txt").write_text("Annotate grouped items: {unit_ids_csv}", encoding="utf-8")
+    (path / "user.txt").write_text("Annotate grouped items: {row_ids_csv}", encoding="utf-8")
 
 
 def write_config(tmp_path: Path, *, provider_settings: dict[str, object] | None = None) -> Path:
     config = {
         "run_metadata": {"run_name": "cli-phase"},
-        "source_input": {"path": "data/input.csv", "format": "csv", "unit_id_column": "unit_id"},
+        "source_input": {"path": "data/input.csv", "format": "csv", "row_id_column": "query_id"},
         "task_kind": "grouped",
         "task": {
             "import_path": "llm_batch_annotate.GroupedTaskBase",

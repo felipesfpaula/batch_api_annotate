@@ -33,7 +33,7 @@ class InputSummary(FrameworkModel):
     source_format: SourceFormat
     source_row_count: int | None = Field(default=None, ge=0)
     unit_count: int | None = Field(default=None, ge=0)
-    unit_id_column: str | None = None
+    row_id_column: str = Field(min_length=1)
 
 
 class GroupingSummary(FrameworkModel):
@@ -74,7 +74,7 @@ class LineageSummary(FrameworkModel):
 class RunManifest(FrameworkModel):
     """Authoritative lifecycle record for a workflow run."""
 
-    schema_version: str = "0.1.0"
+    schema_version: str = "0.1.1"
     run_id: str = Field(min_length=1)
     run_name: str = Field(min_length=1)
     task_kind: TaskKind

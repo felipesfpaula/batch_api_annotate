@@ -49,12 +49,14 @@ Tasks, builders, parsers, providers, and artifact stores are serialized as impor
 
 - `path`: CSV, TSV, or JSONL input path.
 - `format`: `csv`, `tsv`, or `jsonl`.
-- `unit_id_column`: optional explicit unit id column.
+- `row_id_column`: required source column that contains the canonical row id used in responses and, for single-item OpenAI Batch runs, the Batch `custom_id`.
+
+This row id is the user-facing identifier written back to `parsed/responses.jsonl`, so it should match the key you want to merge on in your source table.
 
 ### `task_kind`
 
-- `single`: one request per unit.
-- `grouped`: multiple units per request and requires a `grouping` section.
+- `single`: one request per row. With `StructuredOutputParser`, a response may be either a bare object or a one-item collection, and the configured row-id field may be omitted because it can be inferred from request context.
+- `grouped`: multiple rows per request and requires a `grouping` section. Grouped responses must return explicit values for the configured row-id field on each item.
 
 ### `grouping`
 
@@ -75,6 +77,17 @@ For grouped runs, the built-in implementation supports:
 - `user_prompt_template_path`: user prompt template file.
 - `few_shot_examples_path`: optional asset file.
 - `response_schema_path`: structured-output schema JSON file.
+
+The bundled single example uses a bare-object response schema, while the grouped example uses an `items` array with explicit `query_id` values.
+
+## Parsed Responses Artifact
+
+The canonical user-facing parsed output is `parsed/responses.jsonl`.
+
+- Each row includes the configured `row_id_column` at top level so you can merge results back to your source table directly.
+- Single-item responses omit `group_id`.
+- Grouped responses include `group_id`.
+- The model does not need to return the row id in single mode when exactly one row is in scope, because the parser can infer it from request context.
 
 ### `provider`
 

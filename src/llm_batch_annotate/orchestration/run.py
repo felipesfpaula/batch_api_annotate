@@ -26,7 +26,7 @@ from ..contracts.records import (
     RequestRecord,
     UnitRecord,
 )
-from ..enums import ArtifactKind, ExecutionStatus, FailureKind, RunStatus
+from ..enums import ArtifactKind, ExecutionStatus, FailureKind, RunStatus, TaskKind
 from ..execution import is_terminal_execution_status
 from ..manifests.models import (
     ComponentIdentitySummary,
@@ -134,7 +134,7 @@ class TaskOrchestrator:
                 source_format=self.config.source_input.format,
                 source_row_count=len(source_rows),
                 unit_count=len(units),
-                unit_id_column=self.config.source_input.unit_id_column or self.task.unit_id_column,
+                row_id_column=self.config.source_input.row_id_column,
             ),
             grouping_summary=self._grouping_summary(groups),
             artifacts=self._artifact_refs_for_run(resolved_run_id, store_config),
@@ -313,7 +313,12 @@ class TaskOrchestrator:
 
         store_config = self.config.artifact_store.config
         self._rewrite_attempt_artifacts(state)
-        self._write_model_records(state.run_id, ArtifactKind.FLATTENED_ANNOTATIONS, state.annotations, store_config)
+        self._write_json_records(
+            state.run_id,
+            ArtifactKind.RESPONSES,
+            [self._response_row_from_annotation(annotation) for annotation in state.annotations],
+            store_config,
+        )
         self._write_model_records(state.run_id, ArtifactKind.FAILURES, state.failures, store_config)
         state.manifest.parse_summary = ParseSummary(
             request_count=len(state.requests),
@@ -356,7 +361,10 @@ class TaskOrchestrator:
         raw_outputs = self._read_jsonl_model_artifact(run_id, ArtifactKind.RAW_OUTPUTS, RawOutputRecord)
         raw_errors = self._read_jsonl_model_artifact(run_id, ArtifactKind.RAW_ERRORS, RawErrorRecord)
         parsed_requests = self._read_jsonl_model_artifact(run_id, ArtifactKind.PARSED_REQUESTS, ParsedRequestRecord)
-        annotations = self._read_jsonl_model_artifact(run_id, ArtifactKind.FLATTENED_ANNOTATIONS, AnnotationRecord)
+        annotations = [
+            self._annotation_from_response_row(response_row)
+            for response_row in self._read_jsonl_artifact(run_id, ArtifactKind.RESPONSES)
+        ]
         failures = self._read_jsonl_model_artifact(run_id, ArtifactKind.FAILURES, FailureRecord)
         provider_failures, parse_failures, flatten_failures, validation_failures = self._split_failures(failures)
 
@@ -587,6 +595,24 @@ class TaskOrchestrator:
             if not line:
                 continue
             records.append(model_type.model_validate_json(line))
+        return records
+
+    def _read_jsonl_artifact(
+        self,
+        run_id: str,
+        artifact_kind: ArtifactKind,
+    ) -> list[dict[str, Any]]:
+        content = self._read_artifact_text(run_id, artifact_kind, required=False)
+        records: list[dict[str, Any]] = []
+        for raw_line in content.splitlines():
+            line = raw_line.strip()
+            if not line:
+                continue
+            payload = json.loads(line)
+            if not isinstance(payload, Mapping):
+                msg = f"artifact {artifact_kind.value!r} must contain JSON objects on each line"
+                raise ValueError(msg)
+            records.append(dict(payload))
         return records
 
     def _split_failures(
@@ -1014,6 +1040,61 @@ class TaskOrchestrator:
     ) -> ArtifactRef:
         content = "".join(record.model_dump_json() + "\n" for record in records)
         return self.artifact_store.write_artifact(run_id, artifact_kind, content, config)
+
+    def _write_json_records(
+        self,
+        run_id: str,
+        artifact_kind: ArtifactKind,
+        records: Sequence[Mapping[str, Any]],
+        config: ArtifactStoreConfig,
+    ) -> ArtifactRef:
+        content = "".join(json.dumps(dict(record), sort_keys=True) + "\n" for record in records)
+        return self.artifact_store.write_artifact(run_id, artifact_kind, content, config)
+
+    def _response_row_from_annotation(self, annotation: AnnotationRecord) -> dict[str, Any]:
+        row_id_column = self.config.source_input.row_id_column
+        response_row = {
+            row_id_column: annotation.unit_id,
+            "request_id": annotation.request_id,
+            "fields": dict(annotation.fields),
+            "metadata": dict(annotation.metadata),
+        }
+        if self.config.task_kind is TaskKind.GROUPED and annotation.group_id is not None:
+            response_row["group_id"] = annotation.group_id
+        return response_row
+
+    def _annotation_from_response_row(self, response_row: Mapping[str, Any]) -> AnnotationRecord:
+        row_id_column = self.config.source_input.row_id_column
+        if row_id_column not in response_row:
+            msg = f"response row is missing the configured row id field {row_id_column!r}"
+            raise ValueError(msg)
+
+        request_id = response_row.get("request_id")
+        if not isinstance(request_id, str) or not request_id.strip():
+            msg = "response row is missing a non-empty 'request_id'"
+            raise ValueError(msg)
+
+        fields = response_row.get("fields", {})
+        if not isinstance(fields, Mapping):
+            msg = "response row 'fields' must be a mapping"
+            raise ValueError(msg)
+
+        metadata = response_row.get("metadata", {})
+        if not isinstance(metadata, Mapping):
+            msg = "response row 'metadata' must be a mapping"
+            raise ValueError(msg)
+
+        group_id = response_row.get("group_id")
+        if group_id is not None:
+            group_id = str(group_id)
+
+        return AnnotationRecord(
+            unit_id=str(response_row[row_id_column]),
+            request_id=request_id,
+            group_id=group_id,
+            fields=dict(fields),
+            metadata=dict(metadata),
+        )
 
     def _failure_record(
         self,

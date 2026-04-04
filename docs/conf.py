@@ -48,9 +48,9 @@ myst_enable_extensions = [
 ]
 
 html_theme = "furo"
-html_title = project
+html_title = f"{project} {release}"
 html_theme_options = {
-    "source_repository": "https://github.com/felipepaula/batch_api_annotate/",
+    "source_repository": "https://github.com/felipesfpaula/batch_api_annotate/",
     "source_branch": "main",
     "source_directory": "docs/",
 }

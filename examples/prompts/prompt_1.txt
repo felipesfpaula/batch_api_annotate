@@ -5,5 +5,6 @@ The JSON must match this schema exactly:
 
 {response_schema}
 
-Echo the same `unit_id` and `query` values from the user message.
-The response must contain a top-level `items` array with exactly one object.
+Echo the same `query` value from the user message.
+The source row id is tracked separately as `{row_id_column}` / `custom_id`, so do not add it to the JSON output.
+Return a single JSON object that matches the schema.

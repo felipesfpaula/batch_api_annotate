@@ -13,8 +13,8 @@ from llm_batch_annotate import (
 
 
 def make_units(count: int) -> list:
-    rows = [{"unit_id": f"unit-{index:02d}", "text": f"row-{index}"} for index in range(count)]
-    return materialize_units(rows, unit_id_column="unit_id")
+    rows = [{"query_id": f"unit-{index:02d}", "text": f"row-{index}"} for index in range(count)]
+    return materialize_units(rows, row_id_column="query_id")
 
 
 def test_plan_fixed_size_groups_preserves_order_and_stable_ids() -> None:

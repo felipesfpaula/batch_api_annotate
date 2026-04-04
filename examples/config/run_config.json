@@ -1,7 +1,7 @@
 {
   "run_metadata": {
     "run_name": "example-single-echo-query",
-    "description": "Single-unit OpenAI Batch example that echoes unit_id and query",
+    "description": "Single-item OpenAI Batch example that echoes query and uses query_id as the canonical row id",
     "tags": [
       "example",
       "openai-batch",
@@ -11,7 +11,7 @@
   "source_input": {
     "path": "../data/mock_data.csv",
     "format": "csv",
-    "unit_id_column": "unit_id"
+    "row_id_column": "query_id"
   },
   "task_kind": "single",
   "task": {
@@ -55,35 +55,17 @@
           "text": {
             "format": {
               "type": "json_schema",
-              "name": "echo_unit_and_query",
+              "name": "echo_single_query",
               "strict": true,
               "schema": {
                 "type": "object",
                 "additionalProperties": false,
                 "required": [
-                  "items"
+                  "query"
                 ],
                 "properties": {
-                  "items": {
-                    "type": "array",
-                    "minItems": 1,
-                    "maxItems": 1,
-                    "items": {
-                      "type": "object",
-                      "additionalProperties": false,
-                      "required": [
-                        "unit_id",
-                        "query"
-                      ],
-                      "properties": {
-                        "unit_id": {
-                          "type": "string"
-                        },
-                        "query": {
-                          "type": "string"
-                        }
-                      }
-                    }
+                  "query": {
+                    "type": "string"
                   }
                 }
               }

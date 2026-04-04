@@ -30,7 +30,7 @@ def make_manifest(run_id: str) -> RunManifest:
             provider=make_component("sample.providers.OpenAIBatchProvider"),
             artifact_store=make_component("sample.artifacts.LocalArtifactStore"),
         ),
-        input_summary=InputSummary(source_path="data/input.csv", source_format="csv"),
+        input_summary=InputSummary(source_path="data/input.csv", source_format="csv", row_id_column="query_id"),
         artifacts=artifact_refs_for_run(run_id),
     )
 

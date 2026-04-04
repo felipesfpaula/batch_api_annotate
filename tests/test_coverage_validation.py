@@ -53,8 +53,8 @@ def test_coverage_failures_emits_structured_failure_records() -> None:
 
     assert len(failures) == 3
     assert [failure.message for failure in failures] == [
-        "duplicate unit_id values detected in coverage validation",
-        "unexpected unit_id values detected in coverage validation",
-        "missing expected unit_id values detected in coverage validation",
+        "duplicate row id values detected in coverage validation",
+        "unexpected row id values detected in coverage validation",
+        "missing expected row id values detected in coverage validation",
     ]
     assert all(failure.request_id == "request-1" for failure in failures)

@@ -15,7 +15,7 @@ class StructuredOutputParser(BaseOutputParser):
         *,
         payload_field_candidates: Sequence[str] | None = None,
         item_list_fields: Sequence[str] | None = None,
-        unit_id_field: str = "unit_id",
+        unit_id_field: str | None = None,
     ) -> None:
         super().__init__(item_list_fields=item_list_fields, unit_id_field=unit_id_field)
         self.payload_field_candidates = tuple(

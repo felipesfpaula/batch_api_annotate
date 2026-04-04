@@ -38,6 +38,9 @@ class ComposedTaskBase(BaseTask):
         self.required_input_columns = tuple(required_input_columns or ())
         self.unit_id_column = unit_id_column
         self.unit_id_from_columns = tuple(unit_id_from_columns or ())
+        if self.unit_id_from_columns:
+            msg = "unit_id_from_columns is no longer supported; configure source_input.row_id_column instead"
+            raise ValueError(msg)
         self.unit_field_columns = tuple(unit_field_columns) if unit_field_columns is not None else None
         self.unit_metadata_columns = tuple(unit_metadata_columns or ())
         self.group_id_prefix = group_id_prefix
@@ -67,8 +70,7 @@ class ComposedTaskBase(BaseTask):
         self._validate_source_rows(source_rows)
         return materialize_unit_records(
             source_rows,
-            unit_id_column=self.unit_id_column or config.source_input.unit_id_column,
-            unit_id_from_columns=self.unit_id_from_columns or None,
+            row_id_column=self.unit_id_column or config.source_input.row_id_column,
             field_columns=self.unit_field_columns,
             metadata_columns=self.unit_metadata_columns,
         )
@@ -91,21 +93,30 @@ class ComposedTaskBase(BaseTask):
         for request_index, group in enumerate(groups):
             group_units = [units_by_id[unit_id] for unit_id in group.unit_ids]
             payload = dict(builder.build_request_payload(group_units, self._group_context(group), config))
+            row_ids = list(group.unit_ids)
             request_metadata = {
                 "request_index": request_index,
                 "group_id": group.group_id,
                 "group_index": group.group_index,
-                "unit_ids": list(group.unit_ids),
+                "row_id_column": config.source_input.row_id_column,
+                "row_ids": row_ids,
+                "unit_ids": row_ids,
             }
             payload_metadata = payload.get("metadata")
             if isinstance(payload_metadata, Mapping):
                 request_metadata.update(dict(payload_metadata))
+            request_metadata.setdefault("row_ids", row_ids)
+            request_metadata.setdefault("unit_ids", row_ids)
 
             requests.append(
                 RequestRecord(
-                    request_id=f"{self.request_id_prefix}-{request_index:06d}",
+                    request_id=(
+                        row_ids[0]
+                        if self.task_kind is TaskKind.SINGLE and len(row_ids) == 1
+                        else f"{self.request_id_prefix}-{request_index:06d}"
+                    ),
                     group_id=group.group_id,
-                    unit_ids=list(group.unit_ids),
+                    unit_ids=row_ids,
                     payload=payload,
                     metadata=request_metadata,
                 )
@@ -131,7 +142,7 @@ class ComposedTaskBase(BaseTask):
         if group_id and group_id in groups_by_id:
             unit_ids = list(groups_by_id[group_id].unit_ids)
         else:
-            raw_unit_ids = metadata.get("unit_ids", [])
+            raw_unit_ids = metadata.get("row_ids", metadata.get("unit_ids", []))
             unit_ids = [str(unit_id) for unit_id in raw_unit_ids]
         return group_id, unit_ids, metadata
 

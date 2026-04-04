@@ -98,7 +98,7 @@ class CLIFakeProvider(ExecutionProviderBase):
                 continue
             items = behavior.get(
                 "items",
-                [{"unit_id": unit_id, "label": f"label-{unit_id}"} for unit_id in request.unit_ids],
+                [{"query_id": unit_id, "label": f"label-{unit_id}"} for unit_id in request.unit_ids],
             )
             outputs.append(
                 self.build_raw_output(

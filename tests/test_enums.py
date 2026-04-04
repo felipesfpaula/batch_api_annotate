@@ -8,7 +8,7 @@ def test_enum_values_are_stable() -> None:
     assert TaskKind.GROUPED.value == "grouped"
     assert RunStatus.PENDING.value == "pending"
     assert ProviderKind.OPENAI_BATCH.value == "openai_batch"
-    assert ArtifactKind.FLATTENED_ANNOTATIONS.value == "flattened_annotations"
+    assert ArtifactKind.RESPONSES.value == "responses"
     assert ExecutionStatus.SUBMITTED.value == "submitted"
     assert FailureKind.PARSE.value == "parse"
 

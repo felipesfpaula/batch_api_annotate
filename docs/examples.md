@@ -20,7 +20,9 @@ Generated run outputs go under `examples/runs/` and are ignored by Git.
 - `OpenAIBatchProvider`
 - `LocalArtifactStore`
 
-Each request covers one input row and expects one returned item.
+Each request covers one input row. The bundled schema returns a bare object, and `StructuredOutputParser` can infer the single row id from request context when it is omitted. The bundled CSV uses `query_id` as that row-id column.
+
+In the resulting `parsed/responses.jsonl`, each single-item row contains `query_id`, `request_id`, `fields`, and `metadata`. It does not include `group_id`.
 
 ## Grouped example
 
@@ -31,6 +33,8 @@ Each request covers one input row and expects one returned item.
 - a schema that accepts up to 3 returned items
 
 With the bundled 10-row CSV, the grouped example produces 4 requests.
+
+In grouped runs, `parsed/responses.jsonl` keeps `query_id` at top level for each row and also includes `group_id`, so you can trace both the original row and the batch grouping.
 
 ## Artifact layout
 
@@ -47,7 +51,7 @@ runs/{run_id}/
   raw/raw_outputs.jsonl
   raw/raw_errors.jsonl
   parsed/parsed_requests.jsonl
-  parsed/flattened_annotations.jsonl
+  parsed/responses.jsonl
   parsed/failures.jsonl
 ```
 
@@ -60,3 +64,4 @@ If a run does not behave as expected, check files in this order:
 3. `raw/raw_outputs.jsonl`
 4. `raw/raw_errors.jsonl`
 5. `parsed/failures.jsonl`
+6. `parsed/responses.jsonl`

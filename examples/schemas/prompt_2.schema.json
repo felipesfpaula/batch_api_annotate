@@ -13,11 +13,11 @@
         "type": "object",
         "additionalProperties": false,
         "required": [
-          "unit_id",
+          "query_id",
           "query"
         ],
         "properties": {
-          "unit_id": {
+          "query_id": {
             "type": "string"
           },
           "query": {

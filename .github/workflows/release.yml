@@ -36,6 +36,24 @@ jobs:
           name: python-package-distributions
           path: dist/*
 
+  github-release:
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download distribution artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --generate-notes --title "$GITHUB_REF_NAME"
+
   publish-testpypi:
     runs-on: ubuntu-latest
     needs: build
@@ -58,7 +76,9 @@ jobs:
 
   publish-pypi:
     runs-on: ubuntu-latest
-    needs: publish-testpypi
+    needs:
+      - github-release
+      - publish-testpypi
     environment:
       name: pypi
     permissions:

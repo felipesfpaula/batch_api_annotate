@@ -1,7 +1,7 @@
 {
   "run_metadata": {
     "run_name": "example-grouped-echo-query",
-    "description": "Grouped OpenAI Batch example that echoes unit_id and query with groups of at most 3",
+    "description": "Grouped OpenAI Batch example that echoes query_id and query with groups of at most 3",
     "tags": [
       "example",
       "openai-batch",
@@ -12,7 +12,7 @@
   "source_input": {
     "path": "../data/mock_data.csv",
     "format": "csv",
-    "unit_id_column": "unit_id"
+    "row_id_column": "query_id"
   },
   "task_kind": "grouped",
   "task": {
@@ -74,11 +74,11 @@
                       "type": "object",
                       "additionalProperties": false,
                       "required": [
-                        "unit_id",
+                        "query_id",
                         "query"
                       ],
                       "properties": {
-                        "unit_id": {
+                        "query_id": {
                           "type": "string"
                         },
                         "query": {

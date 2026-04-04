@@ -60,10 +60,10 @@ ARTIFACT_REGISTRY: dict[ArtifactKind, ArtifactDefinition] = {
         format=ArtifactFormat.JSONL,
         relative_path=PurePosixPath("parsed/parsed_requests.jsonl"),
     ),
-    ArtifactKind.FLATTENED_ANNOTATIONS: ArtifactDefinition(
-        artifact_kind=ArtifactKind.FLATTENED_ANNOTATIONS,
+    ArtifactKind.RESPONSES: ArtifactDefinition(
+        artifact_kind=ArtifactKind.RESPONSES,
         format=ArtifactFormat.JSONL,
-        relative_path=PurePosixPath("parsed/flattened_annotations.jsonl"),
+        relative_path=PurePosixPath("parsed/responses.jsonl"),
     ),
     ArtifactKind.FAILURES: ArtifactDefinition(
         artifact_kind=ArtifactKind.FAILURES,

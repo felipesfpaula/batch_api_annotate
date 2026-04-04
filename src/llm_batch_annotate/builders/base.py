@@ -15,6 +15,9 @@ class BaseBuilder(BaseMessageBuilder, ABC):
     def __init__(self, *, required_unit_fields: Sequence[str] | None = None) -> None:
         self.required_unit_fields = tuple(required_unit_fields or ())
 
+    def _row_id_column(self, config: RunConfig) -> str:
+        return config.source_input.row_id_column
+
     def validate_inputs(
         self,
         units: Sequence[UnitRecord],
@@ -46,20 +49,24 @@ class BaseBuilder(BaseMessageBuilder, ABC):
     def load_assets(self, prompt_assets: PromptAssetsConfig) -> PromptAssetBundle:
         return load_prompt_assets(prompt_assets)
 
-    def serialize_unit(self, unit: UnitRecord) -> dict[str, Any]:
+    def serialize_unit(self, unit: UnitRecord, config: RunConfig) -> dict[str, Any]:
+        row_id_column = self._row_id_column(config)
         return {
-            "unit_id": unit.unit_id,
+            row_id_column: unit.unit_id,
             "source_row_index": unit.source_row_index,
             "fields": dict(unit.fields),
             "metadata": dict(unit.metadata),
         }
 
-    def serialize_group(self, group: GroupRecord | None) -> dict[str, Any] | None:
+    def serialize_group(self, group: GroupRecord | None, config: RunConfig) -> dict[str, Any] | None:
         if group is None:
             return None
+        row_ids = list(group.unit_ids)
         return {
             "group_id": group.group_id,
-            "unit_ids": list(group.unit_ids),
+            "row_id_column": self._row_id_column(config),
+            "row_ids": row_ids,
+            "unit_ids": row_ids,
             "group_index": group.group_index,
             "metadata": dict(group.metadata),
         }
@@ -71,15 +78,20 @@ class BaseBuilder(BaseMessageBuilder, ABC):
         config: RunConfig,
     ) -> dict[str, Any]:
         assets = self.load_assets(config.prompt_assets)
-        serialized_units = [self.serialize_unit(unit) for unit in units]
-        serialized_group = self.serialize_group(group)
+        row_id_column = self._row_id_column(config)
+        row_ids = [unit.unit_id for unit in units]
+        serialized_units = [self.serialize_unit(unit, config) for unit in units]
+        serialized_group = self.serialize_group(group, config)
 
         context: dict[str, Any] = {
             "run_name": config.run_metadata.run_name,
             "task_kind": config.task_kind.value,
+            "row_id_column": row_id_column,
             "unit_count": len(units),
-            "unit_ids": [unit.unit_id for unit in units],
-            "unit_ids_csv": ",".join(unit.unit_id for unit in units),
+            "row_ids": row_ids,
+            "row_ids_csv": ",".join(row_ids),
+            "unit_ids": row_ids,
+            "unit_ids_csv": ",".join(row_ids),
             "units": serialized_units,
             "units_json": json.dumps(serialized_units, sort_keys=True, default=str),
             "group": serialized_group,
@@ -93,6 +105,7 @@ class BaseBuilder(BaseMessageBuilder, ABC):
         if len(units) == 1:
             unit = units[0]
             context["unit"] = serialized_units[0]
+            context["row_id"] = unit.unit_id
             context["unit_id"] = unit.unit_id
             context["fields"] = dict(unit.fields)
             context["metadata"] = dict(unit.metadata)
@@ -141,6 +154,8 @@ class BaseBuilder(BaseMessageBuilder, ABC):
         payload_metadata: dict[str, Any] = {
             "run_name": config.run_metadata.run_name,
             "task_kind": config.task_kind.value,
+            "row_id_column": self._row_id_column(config),
+            "row_ids": [unit.unit_id for unit in units],
             "unit_ids": [unit.unit_id for unit in units],
             "unit_count": len(units),
         }

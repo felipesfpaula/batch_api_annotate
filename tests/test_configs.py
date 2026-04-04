@@ -21,7 +21,7 @@ def make_component(import_path: str) -> dict[str, object]:
 def make_base_run_config(task_kind: TaskKind) -> dict[str, object]:
     return {
         "run_metadata": {"run_name": "phase-1-smoke"},
-        "source_input": {"path": "data/input.csv", "format": "csv", "unit_id_column": "unit_id"},
+        "source_input": {"path": "data/input.csv", "format": "csv", "row_id_column": "query_id"},
         "task_kind": task_kind,
         "task": make_component("sample.tasks.BasicTask"),
         "builder": make_component("sample.builders.BasicBuilder"),
@@ -74,6 +74,22 @@ def test_component_ref_serializes_settings() -> None:
 
     assert dumped["task"]["import_path"] == "sample.tasks.BasicTask"
     assert dumped["task"]["settings"] == {"version": "test"}
+
+
+def test_source_input_requires_row_id_column() -> None:
+    payload = make_base_run_config(TaskKind.SINGLE)
+    payload["source_input"] = {"path": "data/input.csv", "format": "csv"}
+
+    with pytest.raises(ValidationError):
+        RunConfig.model_validate(payload)
+
+
+def test_source_input_rejects_legacy_unit_id_column() -> None:
+    payload = make_base_run_config(TaskKind.SINGLE)
+    payload["source_input"] = {"path": "data/input.csv", "format": "csv", "unit_id_column": "unit_id"}
+
+    with pytest.raises(ValidationError):
+        RunConfig.model_validate(payload)
 
 
 def test_openai_provider_config_validates_completion_window() -> None:

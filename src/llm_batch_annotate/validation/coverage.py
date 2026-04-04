@@ -83,7 +83,7 @@ def coverage_failures(
         failures.append(
             FailureRecord(
                 failure_kind=failure_kind,
-                message="duplicate unit_id values detected in coverage validation",
+                message="duplicate row id values detected in coverage validation",
                 request_id=request_id,
                 group_id=group_id,
                 details={**base_details, "duplicate_unit_ids": result.duplicate_unit_ids},
@@ -94,7 +94,7 @@ def coverage_failures(
         failures.append(
             FailureRecord(
                 failure_kind=failure_kind,
-                message="unexpected unit_id values detected in coverage validation",
+                message="unexpected row id values detected in coverage validation",
                 request_id=request_id,
                 group_id=group_id,
                 details={**base_details, "unexpected_unit_ids": result.unexpected_unit_ids},
@@ -105,7 +105,7 @@ def coverage_failures(
         failures.append(
             FailureRecord(
                 failure_kind=failure_kind,
-                message="missing expected unit_id values detected in coverage validation",
+                message="missing expected row id values detected in coverage validation",
                 request_id=request_id,
                 group_id=group_id,
                 details={**base_details, "missing_unit_ids": result.missing_unit_ids},

@@ -5,50 +5,66 @@ import pytest
 from llm_batch_annotate import derive_unit_id, materialize_units
 
 
-def test_materialize_units_uses_explicit_unit_id_column() -> None:
+def test_materialize_units_uses_required_row_id_column() -> None:
     units = materialize_units(
         [
-            {"unit_id": "u-1", "query": "shoes", "source": "catalog"},
-            {"unit_id": "u-2", "query": "boots", "source": "catalog"},
+            {"query_id": "q-1", "query": "shoes", "source": "catalog"},
+            {"query_id": "q-2", "query": "boots", "source": "catalog"},
         ],
-        unit_id_column="unit_id",
+        row_id_column="query_id",
         metadata_columns=["source"],
     )
 
-    assert [unit.unit_id for unit in units] == ["u-1", "u-2"]
+    assert [unit.unit_id for unit in units] == ["q-1", "q-2"]
     assert units[0].fields == {"query": "shoes"}
     assert units[0].metadata == {"source": "catalog"}
 
 
-def test_materialize_units_can_derive_ids_from_columns() -> None:
+def test_materialize_units_auto_field_selection_excludes_row_id_column() -> None:
     units = materialize_units(
-        [{"query": "red shoes", "locale": "en-US"}],
-        unit_id_from_columns=["query", "locale"],
+        [{"query_id": "q-1", "query": "red shoes", "locale": "en-US"}],
+        row_id_column="query_id",
     )
 
-    assert units[0].unit_id.startswith("unit-")
     assert units[0].fields == {"query": "red shoes", "locale": "en-US"}
 
 
-def test_derive_unit_id_falls_back_to_row_index() -> None:
-    unit_id = derive_unit_id({"query": "red shoes"}, source_row_index=7)
-    assert unit_id == "unit-000007"
+def test_derive_unit_id_uses_configured_row_id_column() -> None:
+    unit_id = derive_unit_id({"query_id": "q-7", "query": "red shoes"}, row_id_column="query_id")
+    assert unit_id == "q-7"
 
 
-def test_materialize_units_rejects_duplicate_unit_ids() -> None:
-    with pytest.raises(ValueError, match="duplicate unit_id"):
+def test_materialize_units_rejects_duplicate_row_ids() -> None:
+    with pytest.raises(ValueError, match="duplicate row id"):
         materialize_units(
             [
-                {"unit_id": "u-1", "query": "shoes"},
-                {"unit_id": "u-1", "query": "boots"},
+                {"query_id": "q-1", "query": "shoes"},
+                {"query_id": "q-1", "query": "boots"},
             ],
-            unit_id_column="unit_id",
+            row_id_column="query_id",
+        )
+
+
+def test_materialize_units_rejects_missing_row_id_column() -> None:
+    with pytest.raises(ValueError, match="missing required row id column"):
+        materialize_units(
+            [{"query": "shoes"}],
+            row_id_column="query_id",
+        )
+
+
+def test_materialize_units_rejects_empty_row_id_values() -> None:
+    with pytest.raises(ValueError, match="row id values must be non-empty"):
+        materialize_units(
+            [{"query_id": "   ", "query": "shoes"}],
+            row_id_column="query_id",
         )
 
 
 def test_materialize_units_rejects_missing_columns() -> None:
     with pytest.raises(ValueError, match="missing required field"):
         materialize_units(
-            [{"query": "shoes"}],
+            [{"query_id": "q-1", "query": "shoes"}],
+            row_id_column="query_id",
             field_columns=["query", "locale"],
         )

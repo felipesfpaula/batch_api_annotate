@@ -37,7 +37,7 @@ def make_run_config(
 ) -> RunConfig:
     payload: dict[str, object] = {
         "run_metadata": {"run_name": "builder-phase"},
-        "source_input": {"path": "data/input.csv", "format": "csv", "unit_id_column": "unit_id"},
+        "source_input": {"path": "data/input.csv", "format": "csv", "row_id_column": "query_id"},
         "task_kind": task_kind,
         "task": make_component("sample.tasks.BasicTask"),
         "builder": make_component("sample.builders.BasicBuilder"),
@@ -78,16 +78,16 @@ class EchoBuilder(BaseBuilder):
 class CountingProgrammaticBuilder(ProgrammaticBuilderBase):
     def render_user_message(self, render_context, config) -> str:
         del config
-        return f"{render_context['unit_count']} unit(s): {render_context['unit_ids_csv']}"
+        return f"{render_context['unit_count']} unit(s): {render_context['row_ids_csv']}"
 
 
 def make_units() -> list[UnitRecord]:
     return materialize_units(
         [
-            {"unit_id": "u-1", "query": "red shoes", "source": "catalog"},
-            {"unit_id": "u-2", "query": "black boots", "source": "catalog"},
+            {"query_id": "q-1", "query": "red shoes", "source": "catalog"},
+            {"query_id": "q-2", "query": "black boots", "source": "catalog"},
         ],
-        unit_id_column="unit_id",
+        row_id_column="query_id",
         metadata_columns=["source"],
     )
 
@@ -133,7 +133,9 @@ def test_base_builder_validates_required_fields_and_builds_payload(tmp_path: Pat
         {"role": "system", "content": "You are a helpful judge."},
         {"role": "user", "content": "red shoes"},
     ]
-    assert payload["metadata"]["unit_ids"] == ["u-1"]
+    assert payload["metadata"]["row_id_column"] == "query_id"
+    assert payload["metadata"]["row_ids"] == ["q-1"]
+    assert payload["metadata"]["unit_ids"] == ["q-1"]
 
 
 def test_simple_template_builder_renders_from_asset_templates(tmp_path: Path) -> None:
@@ -151,15 +153,16 @@ def test_simple_template_builder_supports_grouped_templates() -> None:
     config = make_run_config(task_kind=TaskKind.GROUPED)
     builder = SimpleTemplateBuilder(
         system_template="Group {group[group_id]}",
-        user_template="Annotate {unit_count} units: {unit_ids_csv}\n{units_json}",
+        user_template="Annotate {unit_count} units: {row_ids_csv}\n{units_json}",
     )
     units = make_units()
-    group = GroupRecord(group_id="group-000001", unit_ids=["u-1", "u-2"], group_index=1)
+    group = GroupRecord(group_id="group-000001", unit_ids=["q-1", "q-2"], group_index=1)
 
     payload = builder.build_request_payload(units, group, config)
 
     assert payload["messages"][0]["content"] == "Group group-000001"
-    assert "Annotate 2 units: u-1,u-2" in payload["messages"][1]["content"]
+    assert "Annotate 2 units: q-1,q-2" in payload["messages"][1]["content"]
+    assert '"query_id": "q-1"' in payload["messages"][1]["content"]
     assert payload["metadata"]["group_id"] == "group-000001"
 
 
@@ -175,10 +178,10 @@ def test_programmatic_builder_base_uses_standardized_context(tmp_path: Path) -> 
     prompt_assets = write_prompt_assets(tmp_path)
     config = make_run_config(prompt_assets, task_kind=TaskKind.GROUPED)
     units = make_units()
-    group = GroupRecord(group_id="group-000010", unit_ids=["u-1", "u-2"], group_index=10)
+    group = GroupRecord(group_id="group-000010", unit_ids=["q-1", "q-2"], group_index=10)
     builder = CountingProgrammaticBuilder()
 
     payload = builder.build_request_payload(units, group, config)
 
     assert payload["messages"][0]["content"] == "You are a helpful judge."
-    assert payload["messages"][1]["content"] == "2 unit(s): u-1,u-2"
+    assert payload["messages"][1]["content"] == "2 unit(s): q-1,q-2"

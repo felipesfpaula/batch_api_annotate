@@ -25,7 +25,7 @@ class SourceInputConfig(FrameworkModel):
 
     path: str = Field(min_length=1)
     format: SourceFormat
-    unit_id_column: str | None = None
+    row_id_column: str = Field(min_length=1)
     options: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -133,7 +133,7 @@ class ArtifactStoreSelectionConfig(FrameworkModel):
 class RunConfig(FrameworkModel):
     """Root configuration model used by the CLI and orchestrator."""
 
-    schema_version: str = "0.1.0"
+    schema_version: str = "0.1.1"
     run_metadata: RunMetadataConfig
     source_input: SourceInputConfig
     task_kind: TaskKind

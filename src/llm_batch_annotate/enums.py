@@ -35,7 +35,7 @@ class ArtifactKind(StrEnum):
     RAW_OUTPUTS = "raw_outputs"
     RAW_ERRORS = "raw_errors"
     PARSED_REQUESTS = "parsed_requests"
-    FLATTENED_ANNOTATIONS = "flattened_annotations"
+    RESPONSES = "responses"
     FAILURES = "failures"
 
 

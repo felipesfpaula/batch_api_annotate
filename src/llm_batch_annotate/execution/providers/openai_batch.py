@@ -397,13 +397,21 @@ class OpenAIBatchProvider(ExecutionProviderBase):
             "url": endpoint,
             "body": body,
         }
+        merged_metadata = {
+            **dict(request.metadata),
+            **dict(payload_metadata),
+        }
+        raw_row_ids = merged_metadata.get("row_ids", request.unit_ids)
+        if isinstance(raw_row_ids, Sequence) and not isinstance(raw_row_ids, (str, bytes, bytearray)):
+            row_ids = [str(row_id) for row_id in raw_row_ids]
+        else:
+            row_ids = [str(unit_id) for unit_id in request.unit_ids]
         context_entry = {
             "group_id": request.group_id,
+            "row_id_column": merged_metadata.get("row_id_column"),
+            "row_ids": row_ids,
             "unit_ids": list(request.unit_ids),
-            "metadata": {
-                **dict(request.metadata),
-                **dict(payload_metadata),
-            },
+            "metadata": merged_metadata,
         }
         return line, context_entry
 
@@ -531,6 +539,12 @@ class OpenAIBatchProvider(ExecutionProviderBase):
         group_id = context.get("group_id")
         if group_id is not None and "group_id" not in metadata:
             metadata["group_id"] = group_id
+        row_id_column = context.get("row_id_column")
+        if row_id_column is not None and "row_id_column" not in metadata:
+            metadata["row_id_column"] = str(row_id_column)
+        row_ids = context.get("row_ids")
+        if isinstance(row_ids, Sequence) and not isinstance(row_ids, (str, bytes, bytearray)):
+            metadata.setdefault("row_ids", [str(row_id) for row_id in row_ids])
         unit_ids = context.get("unit_ids")
         if isinstance(unit_ids, Sequence) and not isinstance(unit_ids, (str, bytes, bytearray)):
             metadata.setdefault("unit_ids", [str(unit_id) for unit_id in unit_ids])

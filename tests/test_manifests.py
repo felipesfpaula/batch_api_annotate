@@ -32,7 +32,7 @@ def test_manifest_defaults_status_and_timestamps() -> None:
             provider=make_component("sample.providers.OpenAIBatchProvider"),
             artifact_store=make_component("sample.artifacts.LocalArtifactStore"),
         ),
-        input_summary=InputSummary(source_path="data/input.csv", source_format="csv"),
+        input_summary=InputSummary(source_path="data/input.csv", source_format="csv", row_id_column="query_id"),
     )
 
     assert manifest.status is RunStatus.PENDING
@@ -52,7 +52,12 @@ def test_manifest_json_round_trip_preserves_artifact_map() -> None:
             provider=make_component("sample.providers.OpenAIBatchProvider"),
             artifact_store=make_component("sample.artifacts.LocalArtifactStore"),
         ),
-        input_summary=InputSummary(source_path="data/input.csv", source_format="csv", source_row_count=12),
+        input_summary=InputSummary(
+            source_path="data/input.csv",
+            source_format="csv",
+            source_row_count=12,
+            row_id_column="query_id",
+        ),
         artifacts=artifact_refs_for_run("run-001"),
     )
 
@@ -79,7 +84,7 @@ def test_manifest_rejects_artifact_key_mismatches() -> None:
                 provider=make_component("sample.providers.OpenAIBatchProvider"),
                 artifact_store=make_component("sample.artifacts.LocalArtifactStore"),
             ),
-            input_summary=InputSummary(source_path="data/input.csv", source_format="csv"),
+            input_summary=InputSummary(source_path="data/input.csv", source_format="csv", row_id_column="query_id"),
             artifacts=artifacts,
         )
 
@@ -100,5 +105,5 @@ def test_manifest_rejects_invalid_timestamp_order() -> None:
                 provider=make_component("sample.providers.OpenAIBatchProvider"),
                 artifact_store=make_component("sample.artifacts.LocalArtifactStore"),
             ),
-            input_summary=InputSummary(source_path="data/input.csv", source_format="csv"),
+            input_summary=InputSummary(source_path="data/input.csv", source_format="csv", row_id_column="query_id"),
         )

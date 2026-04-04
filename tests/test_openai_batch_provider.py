@@ -108,14 +108,14 @@ def test_submit_requests_uploads_jsonl_and_creates_batch() -> None:
                     "messages": [{"role": "user", "content": "Annotate row 1"}],
                     "metadata": {"builder": "simple"},
                 },
-                metadata={"unit_ids": ["u-1"]},
+                metadata={"row_id_column": "query_id", "row_ids": ["u-1"], "unit_ids": ["u-1"]},
             ),
             RequestRecord(
                 request_id="request-2",
                 group_id="group-2",
                 unit_ids=["u-2"],
                 payload={"messages": [{"role": "user", "content": "Annotate row 2"}]},
-                metadata={"unit_ids": ["u-2"]},
+                metadata={"row_id_column": "query_id", "row_ids": ["u-2"], "unit_ids": ["u-2"]},
             ),
         ],
         config,
@@ -128,6 +128,8 @@ def test_submit_requests_uploads_jsonl_and_creates_batch() -> None:
     assert handle.request_count == 2
     assert handle.provider_metadata["input_file_id"] == "file_input_123"
     assert handle.metadata["request_context"]["request-1"]["group_id"] == "group-1"
+    assert handle.metadata["request_context"]["request-1"]["row_id_column"] == "query_id"
+    assert handle.metadata["request_context"]["request-1"]["row_ids"] == ["u-1"]
     assert handle.metadata["request_context"]["request-1"]["metadata"]["builder"] == "simple"
 
     upload_call = transport.calls[0]
@@ -219,6 +221,8 @@ def test_retrieve_outputs_normalizes_chat_completion_lines() -> None:
             "request_context": {
                 "request-1": {
                     "group_id": "group-1",
+                    "row_id_column": "query_id",
+                    "row_ids": ["u-1"],
                     "unit_ids": ["u-1"],
                     "metadata": {"source": "tests"},
                 }
@@ -236,6 +240,8 @@ def test_retrieve_outputs_normalizes_chat_completion_lines() -> None:
     assert output.payload["content"] == '{"items":[{"unit_id":"u-1","label":"keep"}]}'
     assert output.payload["response"]["id"] == "chatcmpl_1"
     assert output.metadata["group_id"] == "group-1"
+    assert output.metadata["row_id_column"] == "query_id"
+    assert output.metadata["row_ids"] == ["u-1"]
     assert output.metadata["unit_ids"] == ["u-1"]
     assert output.metadata["source"] == "tests"
 
@@ -295,6 +301,8 @@ def test_retrieve_outputs_normalizes_responses_api_lines() -> None:
             "request_context": {
                 "request-1": {
                     "group_id": "group-1",
+                    "row_id_column": "query_id",
+                    "row_ids": ["u-1"],
                     "unit_ids": ["u-1"],
                     "metadata": {"source": "tests"},
                 }
@@ -357,8 +365,20 @@ def test_retrieve_errors_normalizes_error_file_lines() -> None:
         provider_metadata={"batch": make_batch(status="expired", error_file_id="file_err_123", completed=1, failed=1)},
         metadata={
             "request_context": {
-                "request-2": {"group_id": "group-2", "unit_ids": ["u-2"], "metadata": {}},
-                "request-3": {"group_id": "group-3", "unit_ids": ["u-3"], "metadata": {"note": "bad payload"}},
+                "request-2": {
+                    "group_id": "group-2",
+                    "row_id_column": "query_id",
+                    "row_ids": ["u-2"],
+                    "unit_ids": ["u-2"],
+                    "metadata": {},
+                },
+                "request-3": {
+                    "group_id": "group-3",
+                    "row_id_column": "query_id",
+                    "row_ids": ["u-3"],
+                    "unit_ids": ["u-3"],
+                    "metadata": {"note": "bad payload"},
+                },
             }
         },
     )

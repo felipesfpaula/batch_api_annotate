@@ -18,6 +18,7 @@ from llm_batch_annotate import (
     RawErrorRecord,
     RawOutputRecord,
     SimpleTemplateBuilder,
+    SingleTaskBase,
     StructuredOutputParser,
     TaskOrchestrator,
     TaskRunState,
@@ -94,15 +95,18 @@ class FakeLifecycleProvider(ExecutionProviderBase):
             behavior = self._request_behaviors.get(request.request_id, {})
             if behavior.get("error"):
                 continue
-            items = behavior.get(
-                "items",
-                [{"unit_id": unit_id, "label": f"label-{unit_id}"} for unit_id in request.unit_ids],
-            )
+            payload = behavior.get("payload")
+            if payload is None:
+                items = behavior.get(
+                    "items",
+                    [{"query_id": unit_id, "label": f"label-{unit_id}"} for unit_id in request.unit_ids],
+                )
+                payload = {"content": json.dumps({"items": items})}
             outputs.append(
                 self.build_raw_output(
                     request.request_id,
                     job_id=handle.job_id,
-                    payload={"content": json.dumps({"items": items})},
+                    payload=dict(payload),
                     metadata={"provider_phase": "retrieve_outputs"},
                 )
             )
@@ -135,33 +139,33 @@ def make_component(import_path: str) -> dict[str, object]:
     return {"import_path": import_path}
 
 
-def make_run_config(tmp_path: Path) -> RunConfig:
-    return RunConfig.model_validate(
-        {
-            "run_metadata": {"run_name": "orchestrator-phase"},
-            "source_input": {"path": "data/input.csv", "format": "csv", "unit_id_column": "unit_id"},
-            "task_kind": TaskKind.GROUPED,
-            "task": make_component("sample.tasks.GroupedTask"),
-            "builder": make_component("sample.builders.SimpleTemplateBuilder"),
-            "parser": make_component("sample.parsers.StructuredOutputParser"),
-            "provider": ProviderSelectionConfig(
-                component=make_component("sample.providers.FakeLifecycleProvider"),
-                config=GenericProviderConfig(),
-            ),
-            "artifact_store": ArtifactStoreSelectionConfig(
-                component=make_component("sample.artifacts.LocalArtifactStore"),
-                config={"root_dir": str(tmp_path / "runs")},
-            ),
-            "grouping": GroupingConfig(group_size=2).model_dump(mode="python"),
-        }
-    )
+def make_run_config(tmp_path: Path, *, task_kind: TaskKind = TaskKind.GROUPED) -> RunConfig:
+    payload: dict[str, object] = {
+        "run_metadata": {"run_name": "orchestrator-phase"},
+        "source_input": {"path": "data/input.csv", "format": "csv", "row_id_column": "query_id"},
+        "task_kind": task_kind,
+        "task": make_component("sample.tasks.BasicTask"),
+        "builder": make_component("sample.builders.SimpleTemplateBuilder"),
+        "parser": make_component("sample.parsers.StructuredOutputParser"),
+        "provider": ProviderSelectionConfig(
+            component=make_component("sample.providers.FakeLifecycleProvider"),
+            config=GenericProviderConfig(),
+        ),
+        "artifact_store": ArtifactStoreSelectionConfig(
+            component=make_component("sample.artifacts.LocalArtifactStore"),
+            config={"root_dir": str(tmp_path / "runs")},
+        ),
+    }
+    if task_kind is TaskKind.GROUPED:
+        payload["grouping"] = GroupingConfig(group_size=2).model_dump(mode="python")
+    return RunConfig.model_validate(payload)
 
 
 def sample_rows() -> list[dict[str, str]]:
     return [
-        {"unit_id": "u-1", "query": "red shoes"},
-        {"unit_id": "u-2", "query": "black boots"},
-        {"unit_id": "u-3", "query": "green sandals"},
+        {"query_id": "q-1", "query": "red shoes"},
+        {"query_id": "q-2", "query": "black boots"},
+        {"query_id": "q-3", "query": "green sandals"},
     ]
 
 
@@ -169,14 +173,21 @@ def make_orchestrator(
     tmp_path: Path,
     *,
     provider: FakeLifecycleProvider | None = None,
+    task_kind: TaskKind = TaskKind.GROUPED,
 ) -> TaskOrchestrator:
+    task = (
+        GroupedTaskBase(required_input_columns=["query"], unit_field_columns=["query"])
+        if task_kind is TaskKind.GROUPED
+        else SingleTaskBase(required_input_columns=["query"], unit_field_columns=["query"])
+    )
+    user_template = "Annotate {row_ids_csv}" if task_kind is TaskKind.GROUPED else "Annotate {query}"
     return TaskOrchestrator(
-        task=GroupedTaskBase(required_input_columns=["query"], unit_field_columns=["query"]),
-        builder=SimpleTemplateBuilder(user_template="Annotate {unit_ids_csv}"),
+        task=task,
+        builder=SimpleTemplateBuilder(user_template=user_template),
         parser=StructuredOutputParser(),
         provider=provider or FakeLifecycleProvider(poll_statuses=[ExecutionStatus.RUNNING, ExecutionStatus.SUCCEEDED]),
         artifact_store=LocalArtifactStore(),
-        config=make_run_config(tmp_path),
+        config=make_run_config(tmp_path, task_kind=task_kind),
         run_id_factory=lambda: "run-test-001",
         sleep_fn=lambda _: None,
     )
@@ -236,10 +247,36 @@ def test_orchestrator_steps_run_grouped_workflow_and_finalize_summary(tmp_path: 
     summary = json.loads((run_root / "metadata" / "summary.json").read_text(encoding="utf-8"))
     assert summary["status"] == "succeeded"
     assert summary["counts"]["annotations"] == 3
-    annotations_lines = (run_root / "parsed" / "flattened_annotations.jsonl").read_text(encoding="utf-8").splitlines()
-    assert len(annotations_lines) == 3
+    response_lines = (run_root / "parsed" / "responses.jsonl").read_text(encoding="utf-8").splitlines()
+    assert len(response_lines) == 3
+    persisted_response = json.loads(response_lines[0])
+    assert persisted_response["query_id"] == "q-1"
+    assert persisted_response["group_id"] == "group-000000"
     failures_text = (run_root / "parsed" / "failures.jsonl").read_text(encoding="utf-8")
     assert failures_text == ""
+
+
+def test_orchestrator_runs_single_workflow_with_inferred_unit_id(tmp_path: Path) -> None:
+    provider = FakeLifecycleProvider(
+        poll_statuses=[ExecutionStatus.SUCCEEDED],
+        request_behaviors={
+            "q-1": {"payload": {"content": json.dumps({"label": "label-q-1"})}},
+        },
+    )
+    orchestrator = make_orchestrator(tmp_path, provider=provider, task_kind=TaskKind.SINGLE)
+
+    state = orchestrator.run(sample_rows()[:1], poll_until_terminal=True, max_polls=1)
+
+    assert state.manifest.status.value == "succeeded"
+    assert len(state.parsed_requests) == 1
+    assert len(state.annotations) == 1
+    assert state.failures == []
+    assert state.annotations[0].unit_id == "q-1"
+    assert state.annotations[0].fields == {"label": "label-q-1"}
+    run_root = tmp_path / "runs" / "run-test-001"
+    persisted_response = json.loads((run_root / "parsed" / "responses.jsonl").read_text(encoding="utf-8").splitlines()[0])
+    assert persisted_response["query_id"] == "q-1"
+    assert "group_id" not in persisted_response
 
 
 def test_orchestrator_marks_partial_when_provider_errors_reduce_coverage(tmp_path: Path) -> None:

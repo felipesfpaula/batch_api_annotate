@@ -22,7 +22,7 @@ EXPECTED_PATHS = {
     ArtifactKind.RAW_OUTPUTS: "raw/raw_outputs.jsonl",
     ArtifactKind.RAW_ERRORS: "raw/raw_errors.jsonl",
     ArtifactKind.PARSED_REQUESTS: "parsed/parsed_requests.jsonl",
-    ArtifactKind.FLATTENED_ANNOTATIONS: "parsed/flattened_annotations.jsonl",
+    ArtifactKind.RESPONSES: "parsed/responses.jsonl",
     ArtifactKind.FAILURES: "parsed/failures.jsonl",
 }
 

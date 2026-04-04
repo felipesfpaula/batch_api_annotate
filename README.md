@@ -4,10 +4,12 @@
 
 ## Highlights
 
-- single-unit and grouped annotation workflows
+- single-item and grouped annotation workflows
 - provider-agnostic task, builder, parser, and artifact abstractions
 - concrete OpenAI Batch adapter
 - resumable CLI-driven runs with persisted manifests
+- user-owned row ids via `source_input.row_id_column`
+- per-row parsed outputs in `parsed/responses.jsonl`
 - example configs, prompts, schemas, and sample data under `examples/`
 
 ## Installation
@@ -27,7 +29,7 @@ python3 -m venv .venv
 
 ## Quickstart
 
-Single-unit example:
+Single-item example:
 
 ```bash
 export OPEN_AI_KEY="your-key"
@@ -46,6 +48,8 @@ llm-batch-annotate resume examples/config/run_config_2.json example-grouped --po
 ## Documentation
 
 Project documentation is intended to be hosted on Read the Docs. The Sphinx source lives under `docs/`.
+
+Release notes for the current series live in `CHANGELOG.md` and `docs/releases.md`.
 
 Planned public docs include:
 

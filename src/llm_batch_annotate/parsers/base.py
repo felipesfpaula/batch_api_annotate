@@ -6,7 +6,7 @@ from typing import Any
 from ..configs.models import RunConfig
 from ..contracts.base import BaseParser
 from ..contracts.records import AnnotationRecord, FailureRecord, GroupRecord, ParsedRequestRecord, RawOutputRecord
-from ..enums import FailureKind
+from ..enums import FailureKind, TaskKind
 from ..validation.coverage import coverage_failures, validate_coverage
 
 
@@ -15,10 +15,13 @@ class BaseOutputParser(BaseParser):
         self,
         *,
         item_list_fields: Sequence[str] | None = None,
-        unit_id_field: str = "unit_id",
+        unit_id_field: str | None = None,
     ) -> None:
         self.item_list_fields = tuple(item_list_fields or ("items", "annotations", "results"))
         self.unit_id_field = unit_id_field
+
+    def id_field_name(self, config: RunConfig) -> str:
+        return self.unit_id_field or config.source_input.row_id_column
 
     def extract_payload(self, raw_output: RawOutputRecord, config: RunConfig) -> Mapping[str, Any]:
         del config
@@ -29,11 +32,11 @@ class BaseOutputParser(BaseParser):
         return dict(payload)
 
     def validate_top_level(self, parsed_payload: Mapping[str, Any], config: RunConfig) -> None:
-        del config
-        self.extract_items(parsed_payload)
+        self.extract_items(parsed_payload, config)
 
-    def extract_items(self, parsed_payload: Mapping[str, Any]) -> list[dict[str, Any]]:
-        if self.unit_id_field in parsed_payload:
+    def extract_items(self, parsed_payload: Mapping[str, Any], config: RunConfig) -> list[dict[str, Any]]:
+        id_field_name = self.id_field_name(config)
+        if id_field_name in parsed_payload:
             raw_items: Any = [parsed_payload]
         else:
             raw_items = None
@@ -41,9 +44,11 @@ class BaseOutputParser(BaseParser):
                 if field_name in parsed_payload:
                     raw_items = parsed_payload[field_name]
                     break
+            if raw_items is None and config.task_kind is TaskKind.SINGLE:
+                raw_items = [parsed_payload]
 
         if raw_items is None:
-            msg = "parsed payload must contain a top-level unit_id or an item collection"
+            msg = f"parsed payload must contain a top-level '{id_field_name}' field or an item collection"
             raise ValueError(msg)
 
         if not isinstance(raw_items, Sequence) or isinstance(raw_items, (str, bytes, bytearray)):
@@ -64,10 +69,26 @@ class BaseOutputParser(BaseParser):
         parsed_request: ParsedRequestRecord,
         *,
         item_index: int,
+        item_count: int,
+        expected_unit_ids: Sequence[str],
+        config: RunConfig,
     ) -> AnnotationRecord:
-        unit_id = str(item.get(self.unit_id_field, "")).strip()
-        if not unit_id:
-            msg = f"parsed item at index {item_index} is missing a non-empty '{self.unit_id_field}'"
+        id_field_name = self.id_field_name(config)
+        if id_field_name in item:
+            unit_id = str(item.get(id_field_name, "")).strip()
+            if not unit_id:
+                msg = f"parsed item at index {item_index} has an empty '{id_field_name}'"
+                raise ValueError(msg)
+        elif config.task_kind is TaskKind.SINGLE and len(expected_unit_ids) == 1 and item_count == 1:
+            unit_id = str(expected_unit_ids[0])
+        elif config.task_kind is TaskKind.SINGLE and len(expected_unit_ids) == 1 and item_count > 1:
+            msg = (
+                f"parsed item at index {item_index} is missing '{id_field_name}' "
+                "and unit inference is ambiguous when multiple items are returned"
+            )
+            raise ValueError(msg)
+        else:
+            msg = f"parsed item at index {item_index} is missing a non-empty '{id_field_name}'"
             raise ValueError(msg)
 
         raw_metadata = item.get("metadata", {})
@@ -82,10 +103,10 @@ class BaseOutputParser(BaseParser):
             if not isinstance(raw_fields, Mapping):
                 msg = "parsed item 'fields' must be a mapping when present"
                 raise ValueError(msg)
-            fields = {key: value for key, value in item.items() if key not in {self.unit_id_field, "fields", "metadata"}}
+            fields = {key: value for key, value in item.items() if key not in {id_field_name, "fields", "metadata"}}
             fields.update(dict(raw_fields))
         else:
-            fields = {key: value for key, value in item.items() if key not in {self.unit_id_field, "metadata"}}
+            fields = {key: value for key, value in item.items() if key not in {id_field_name, "metadata"}}
 
         metadata = {"item_index": item_index}
         metadata.update(dict(raw_metadata))
@@ -103,10 +124,16 @@ class BaseOutputParser(BaseParser):
         expected_unit_ids: Sequence[str],
         config: RunConfig,
     ) -> Sequence[AnnotationRecord]:
-        del expected_unit_ids, config
-        items = self.extract_items(parsed_request.parsed_payload)
+        items = self.extract_items(parsed_request.parsed_payload, config)
         return [
-            self.build_annotation_record(item, parsed_request, item_index=item_index)
+            self.build_annotation_record(
+                item,
+                parsed_request,
+                item_index=item_index,
+                item_count=len(items),
+                expected_unit_ids=expected_unit_ids,
+                config=config,
+            )
             for item_index, item in enumerate(items)
         ]
 
@@ -224,12 +251,13 @@ class BaseOutputParser(BaseParser):
         for raw_output in raw_outputs:
             context = context_lookup.get(raw_output.request_id, {})
             try:
+                context_unit_ids = context.get("row_ids", context.get("unit_ids"))
                 parsed_requests.append(
                     self.parse_output(
                         raw_output,
                         config,
                         group_id=context.get("group_id"),
-                        unit_ids=context.get("unit_ids"),
+                        unit_ids=context_unit_ids,
                         metadata=context.get("metadata"),
                     )
                 )
