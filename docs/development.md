@@ -42,7 +42,7 @@ Before the automation can publish docs or packages, configure:
 1. merge changes into `main`
 2. ensure CI is green
 3. update `src/llm_batch_annotate/_version.py`, release notes in `CHANGELOG.md`, and any publish-facing docs
-4. create and push a tag such as `v0.1.1`
+4. create and push a tag such as `v0.1.2`
 5. let the release workflow build the distribution once
 6. create the GitHub Release from that tag and attach the built artifacts
 7. publish the built artifacts to TestPyPI

@@ -133,7 +133,7 @@ class ArtifactStoreSelectionConfig(FrameworkModel):
 class RunConfig(FrameworkModel):
     """Root configuration model used by the CLI and orchestrator."""
 
-    schema_version: str = "0.1.1"
+    schema_version: str = "0.1.2"
     run_metadata: RunMetadataConfig
     source_input: SourceInputConfig
     task_kind: TaskKind

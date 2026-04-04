@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.1 - 2026-04-04
+## 0.1.2 - 2026-04-04
 
 ### Changed
 
@@ -21,3 +21,4 @@
 - Updated the examples and docs to use `query_id`, `row_id_column`, and `parsed/responses.jsonl`.
 - Added release notes to the docs and exposed a changelog link in package metadata.
 - Prepared the release workflow to create a GitHub Release on version tags in addition to publishing to TestPyPI and PyPI.
+- Fixed the GitHub Release workflow so the artifact-only release job passes the repository explicitly to `gh release create`.

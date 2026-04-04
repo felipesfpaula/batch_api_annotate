@@ -1,6 +1,6 @@
 # Releases
 
-## v0.1.1
+## v0.1.2
 
 Release date: 2026-04-04
 
@@ -10,6 +10,7 @@ Release date: 2026-04-04
 - The canonical parsed output is now `parsed/responses.jsonl`.
 - Single-item runs no longer require the model to echo the row id when exactly one row is in scope.
 - Single-item OpenAI Batch requests now reuse the source row id as the Batch `custom_id`.
+- The GitHub release workflow now creates releases from artifact-only jobs without requiring a checked out `.git` directory.
 
 ### Breaking public contract changes
 
@@ -24,8 +25,8 @@ Release date: 2026-04-04
 
 ### Release surfaces
 
-- PyPI package version: `0.1.1`
-- GitHub release tag: `v0.1.1`
+- PyPI package version: `0.1.2`
+- GitHub release tag: `v0.1.2`
 - Read the Docs latest build reflects this release series from the `main` branch
 
 The repository-level changelog lives in [`CHANGELOG.md`](https://github.com/felipesfpaula/batch_api_annotate/blob/main/CHANGELOG.md).

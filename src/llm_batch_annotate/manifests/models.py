@@ -74,7 +74,7 @@ class LineageSummary(FrameworkModel):
 class RunManifest(FrameworkModel):
     """Authoritative lifecycle record for a workflow run."""
 
-    schema_version: str = "0.1.1"
+    schema_version: str = "0.1.2"
     run_id: str = Field(min_length=1)
     run_name: str = Field(min_length=1)
     task_kind: TaskKind
